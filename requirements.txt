@@ -1,0 +1,5 @@
+# Core scientific / plotting / graph packages
+numpy
+pandas
+matplotlib
+networkx
