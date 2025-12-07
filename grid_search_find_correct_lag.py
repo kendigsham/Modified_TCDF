@@ -313,8 +313,9 @@ def main():
                     "scores_shapes": {str(k): (0 if v is None else len(v)) for k, v in allscores.items()},
                 }
 
-                timestamp = int(time.time())
-                outpath = outdir / f"tcdf_grid_{combo_name}_{timestamp}.json"
+                # timestamp = int(time.time())
+                # outpath = outdir / f"tcdf_grid_{combo_name}_{timestamp}.json"
+                outpath = outdir / f"tcdf_grid_{combo_name}.json"
                 with open(outpath, "w") as fh:
                     json.dump(serializable, fh, indent=2)
 
@@ -340,7 +341,8 @@ def main():
             time.sleep(1.0)
 
     # Write summary of combos
-    summary_path = outdir / f"tcdf_grid_summary_{int(time.time())}.json"
+    # summary_path = outdir / f"tcdf_grid_summary_{int(time.time())}.json"
+    summary_path = outdir / f"tcdf_grid_summary_{outdir.name}.json"
     with open(summary_path, "w") as fh:
         json.dump(combos_summary, fh, indent=2)
     print(f"\nGrid search finished. Summary written to {summary_path}")
