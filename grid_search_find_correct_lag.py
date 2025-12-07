@@ -45,6 +45,7 @@ import torch
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import re
 
 # # local project helpers (must be importable from repo_root)
 # import s_TCDF
@@ -154,6 +155,41 @@ def run_tcdf_file(datafile: str, params: Dict) -> Tuple[Dict, Dict, Dict, Dict, 
     return allcauses, alldelays, allreallosses, allscores, columns
 
 
+def _next_run_dir(base_outdir: Path, prefix: str = "run_", width: int = 3) -> Path:
+    """
+    Determine the next incrementing run directory under base_outdir.
+    Format: <prefix><NNN> zero-padded to 'width' (e.g. run_001).
+    Scans existing directories matching the pattern and returns the first non-existing name.
+    """
+    base_outdir = Path(base_outdir)
+    # Ensure base exists
+    base_outdir.mkdir(parents=True, exist_ok=True)
+
+    pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$")
+    max_n = 0
+    for p in base_outdir.iterdir():
+        if p.is_dir():
+            m = pattern.match(p.name)
+            if m:
+                try:
+                    n = int(m.group(1))
+                    if n > max_n:
+                        max_n = n
+                except ValueError:
+                    pass
+
+    # next index
+    next_n = max_n + 1
+    # construct name with zero padding
+    while True:
+        name = f"{prefix}{next_n:0{width}d}"
+        candidate = base_outdir / name
+        if not candidate.exists():
+            return candidate
+        next_n += 1
+
+
+
 def main():
     p = argparse.ArgumentParser(description="Grid search wrapper for TCDF (run multiple combos in one pod).")
     p.add_argument("--datafile", required=True, help="Path to CSV dataset (columns = variables).")
@@ -171,8 +207,40 @@ def main():
     args = p.parse_args()
 
     # ensure outdir exists
-    outdir = Path(args.outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
+    base_outdir = Path(args.outdir)
+
+    # Create a new incrementing run directory under the provided base outdir.
+    run_dir = _next_run_dir(base_outdir, prefix="run_", width=3)
+    try:
+        run_dir.mkdir(parents=True, exist_ok=False)
+    except Exception as e:
+        raise RuntimeError(f"Failed to create run directory {run_dir}: {e}")
+
+    outdir = run_dir
+    print(f"Writing outputs to: {outdir}")
+
+    # outdir.mkdir(parents=True, exist_ok=True)
+    # try:
+    #     if not base_outdir.exists():
+    #         base_outdir.mkdir(parents=True, exist_ok=False)
+    # except Exception as e:
+    #     raise RuntimeError(f"Failed to create base outdir {base_outdir}: {e}")
+
+    # # create a unique per-run directory under base_outdir
+    # timestr = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+    # run_dir = base_outdir / f"run_{timestr}"
+    # suffix = 0
+    # while run_dir.exists():
+    #     suffix += 1
+    #     run_dir = base_outdir / f"run_{timestr}_{suffix}"
+
+    # try:
+    #     run_dir.mkdir(parents=True, exist_ok=False)
+    # except Exception as e:
+    #     raise RuntimeError(f"Failed to create run directory {run_dir}: {e}")
+
+    # outdir = run_dir  # use run_dir for all output files
+    # print(f"Writing outputs to: {outdir}")
 
     # sanity for CUDA flag
     if args.cuda and not torch.cuda.is_available():
